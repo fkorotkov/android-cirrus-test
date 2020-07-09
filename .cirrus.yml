@@ -1,0 +1,33 @@
+connected_check_task:
+  name: Start Android Emulator
+  env:
+    API_LEVEL: 28
+    TARGET: default
+    ARCH: x86_64
+    JAVA_TOOL_OPTIONS: -Xmx6g
+    GRADLE_OPTS: -Dorg.gradle.daemon=true -Dorg.gradle.parallel=true -Dorg.gradle.caching=true -Dorg.gradle.configureondemand=true -Dorg.gradle.jvmargs=-Dfile.encoding=UTF-8 -Dkotlin.incremental=false -Dkotlin.compiler.execution.strategy=in-process
+  container:
+    image: digidem/docker-android
+    kvm: true
+    cpu: 4
+    memory: 16G
+  create_device_script: |
+    echo no | avdmanager create avd --force --name emu --abi "${TARGET}/${ARCH}" --device "Nexus 6" --package "system-images;android-${API_LEVEL};${TARGET};${ARCH}"
+    echo "Emulator version:"
+    $ANDROID_HOME/emulator/emulator @emu -version
+    $ANDROID_HOME/emulator/emulator -list-avds
+    echo "Hardware acceleration:"
+    $ANDROID_HOME/emulator/emulator -accel-check
+    echo "\nEmulator config"
+    cat $HOME/.android/avd/emu.avd/config.ini
+  start_emulator_background_script: $ANDROID_HOME/emulator/emulator -avd emu -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back emulated
+  wait_for_emulator_script: adb wait-for-device shell 'while [[ -z $(getprop sys.boot_completed) ]]; do sleep 3; done; input keyevent 82'
+  disable_animations_script: |
+    adb shell settings put global window_animation_scale 0.0
+    adb shell settings put global transition_animation_scale 0.0
+    adb shell settings put global animator_duration_scale 0.0
+  run_tests_script: |
+    adb devices
+    $ANDROID_HOME/emulator/emulator -list-avds
+    ! ls -al $ANDROID_HOME/avd
+    ! ls -al ~/.android/avd
